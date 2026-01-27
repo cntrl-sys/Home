@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>BOSS Commands</title>
+<style>
+
+body{
+    margin:0;
+    font-family: Arial, Helvetica, sans-serif;
+    background:#0f172a;
+    color:white;
+}
+
+header{
+    position:fixed;
+    top:0;
+    width:100%;
+    height:70px;
+    background:#020617;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+}
+
+header a{
+    color:white;
+    text-decoration:none;
+    font-size:26px;
+    font-weight:bold;
+}
+
+.menu{
+    position:absolute;
+    right:30px;
+    cursor:pointer;
+}
+
+.menu div{
+    width:30px;
+    height:4px;
+    background:white;
+    margin:6px 0;
+    border-radius:5px;
+}
+
+.dropdown{
+    position:absolute;
+    right:30px;
+    top:70px;
+    background:#020617;
+    border-radius:12px;
+    overflow:hidden;
+    display:none;
+    box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+
+.dropdown a{
+    display:block;
+    padding:14px 30px;
+    color:white;
+    text-decoration:none;
+}
+
+.dropdown a:hover{
+    background:#1e293b;
+}
+
+.menu:hover + .dropdown,
+.dropdown:hover{
+    display:block;
+}
+
+.container{
+    margin-top:120px;
+    max-width:900px;
+    margin-left:auto;
+    margin-right:auto;
+    padding:20px;
+}
+
+.card-link{
+    text-decoration:none;
+    color:inherit;
+    display:block;
+}
+
+.card{
+    background:#1e293b;
+    border-radius:20px;
+    padding:25px;
+    margin-bottom:20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    transition:0.3s;
+}
+
+.card:hover{
+    transform:scale(1.02);
+    background:#334155;
+}
+
+.text{
+    max-width:75%;
+}
+
+.title{
+    font-size:22px;
+    margin-bottom:6px;
+}
+
+.desc{
+    color:#cbd5e1;
+    font-size:15px;
+}
+
+.logo{
+    width:60px;
+    height:60px;
+    background:#0f172a;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+}
+footer {
+    background-color: #020617;
+    color: #fff;
+    text-align: center;
+    padding: 2rem 0;
+    margin-top: 3rem;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <a href="index.html">Boss Commands</a>
+
+    <div class="menu">
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>
+
+    <div class="dropdown">
+        <a href="seite1.html">Website 1</a>
+        <a href="seite2.html">Website 2</a>
+        <a href="seite3.html">Website 3</a>
+    </div>
+</header>
+
+<div class="container">
+
+<a href="https://meineseite.de" class="card-link">
+    <div class="card">
+        <div class="text">
+            <div class="title">Meine Portfolio Seite</div>
+            <div class="desc">Übersicht über Projekte und Designs</div>
+        </div>
+        <div class="logo">💻</div>
+    </div>
+</a>
+
+<a href="tktk.html" class="card-link">
+    <div class="card">
+        <div class="text">
+            <div class="title">TikTok Viewer -> Downloader</div>
+            <div class="desc">Downloade jetzt Beiträge öffentlicher Profile</div>
+        </div>
+        <div class="logo">📸</div>
+    </div>
+</a>
+
+<a href="https://yt1d.net/" class="card-link">
+    <div class="card">
+        <div class="text">
+            <div class="title">Youtube Video Downloader</div>
+            <div class="desc">Downloade jetzt YouTube Videos</div>
+        </div>
+        <div class="logo">🎮</div>
+    </div>
+</a>
+
+<a href="https://de.savefrom.net/23-youtube-shorts-downloader-5qx.html" class="card-link">
+    <div class="card">
+        <div class="text">
+            <div class="title">YouTube Shorts Downloader</div>
+            <div class="desc">Downloade jetzt YouTube Shorts</div>
+        </div>
+        <div class="logo">shorts.png</div>
+    </div>
+</a>
+
+<a href="https://de.savefrom.net/192ji/" class="card-link">
+    <div class="card">
+        <div class="text">
+            <div class="title">Universal Downloader</div>
+            <div class="desc">Downloade jetzt ohne Einschränkung</div>
+        </div>
+        <div class="logo">shorts.png</div>
+    </div>
+</a>
+<a href="twdf.html" class="card-link">
+    <div class="card">
+        <div class="text">
+            <div class="title">Tower Defence</div>
+            <div class="desc">Tower Defense Spiel im Web</div>
+        </div>
+        <div class="logo">🎮</div>
+    </div>
+</a>
+</div>
+<footer>
+    Version 1.5
+</footer>
+</body>
+</html>
