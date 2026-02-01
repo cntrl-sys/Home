@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tower Defense</title>
+
+<style>
+body{
+    margin:0;
+    display:flex;
+    background:#111;
+    color:white;
+    font-family:Arial;
+}
+
+#game{
+    background:#222;
+    cursor:crosshair;
+}
+
+#sidebar{
+    width:160px;
+    background:#1a1a1a;
+    padding:10px;
+    border-left:2px solid #333;
+}
+
+.towerBtn{
+    width:120px;
+    height:120px;
+    margin:10px auto;
+    border:2px solid #555;
+    border-radius:12px;
+    overflow:hidden;
+    cursor:pointer;
+}
+
+.towerBtn img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+.towerBtn.active{
+    border-color:#00ff88;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="900" height="500"></canvas>
+
+<div id="sidebar">
+    <div class="towerBtn active" data-type="fire">
+        <img src="fire.png">
+    </div>
+    <div class="towerBtn" data-type="ice">
+        <img src="ice.png">
+    </div>
+    <div class="towerBtn" data-type="sniper">
+        <img src="sniper.png">
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let towers = [];
+let enemies = [];
+
+let selectedTower = "fire";
+
+document.querySelectorAll(".towerBtn").forEach(btn=>{
+    btn.onclick=()=>{
+        document.querySelectorAll(".towerBtn").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        selectedTower = btn.dataset.type;
+    }
+});
+
+canvas.addEventListener("click", e=>{
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    towers.push(createTower(x,y,selectedTower));
+});
+
+function createTower(x,y,type){
+    let tower={
+        x,y,type,
+        range: type==="sniper"?220:120,
+        damage: type==="fire"?6:type==="ice"?3:15,
+        fireRate: type==="sniper"?80:40,
+        cooldown:0
+    };
+    return tower;
+}
+
+function spawnEnemy(type){
+    let e={
+        x:0,
+        y:250,
+        hp: type==="boss"?500:type==="tank"?200:type==="fly"?80:60,
+        speed: type==="fast"?2.2:type==="tank"?0.6:1.2,
+        type,
+        slow:0
+    };
+    enemies.push(e);
+}
+
+setInterval(()=>{
+    let r=Math.random();
+    if(r<0.5) spawnEnemy("fast");
+    else if(r<0.75) spawnEnemy("tank");
+    else if(r<0.9) spawnEnemy("fly");
+    else spawnEnemy("boss");
+},1500);
+
+function update(){
+    ctx.clearRect(0,0,900,500);
+
+    enemies.forEach(e=>{
+        let sp=e.speed*(e.slow>0?0.4:1);
+        e.x+=sp;
+        if(e.slow>0) e.slow--;
+
+        ctx.fillStyle = e.type==="boss"?"purple":e.type==="fly"?"cyan":"red";
+        ctx.beginPath();
+        ctx.arc(e.x,e.y,12,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle="lime";
+        ctx.fillRect(e.x-15,e.y-18,(e.hp/500)*30,4);
+    });
+
+    enemies=enemies.filter(e=>e.x<900 && e.hp>0);
+
+    towers.forEach(t=>{
+        ctx.fillStyle = t.type==="fire"?"orange":t.type==="ice"?"lightblue":"yellow";
+        ctx.beginPath();
+        ctx.arc(t.x,t.y,14,0,Math.PI*2);
+        ctx.fill();
+
+        if(t.cooldown>0){t.cooldown--;return;}
+
+        let target=enemies.find(e=>{
+            let d=Math.hypot(e.x-t.x,e.y-t.y);
+            return d<t.range;
+        });
+
+        if(target){
+            t.cooldown=t.fireRate;
+
+            drawProjectile(t.x,t.y,target.x,target.y);
+
+            if(t.type==="fire"){
+                enemies.forEach(e=>{
+                    if(Math.hypot(e.x-target.x,e.y-target.y)<40){
+                        e.hp-=t.damage;
+                    }
+                });
+                explosion(target.x,target.y);
+            }
+            else if(t.type==="ice"){
+                target.hp-=t.damage;
+                target.slow=60;
+            }
+            else{
+                target.hp-=t.damage;
+            }
+        }
+    });
+
+    requestAnimationFrame(update);
+}
+
+function drawProjectile(x1,y1,x2,y2){
+    ctx.strokeStyle="white";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+}
+
+function explosion(x,y){
+    ctx.fillStyle="rgba(255,150,0,0.5)";
+    ctx.beginPath();
+    ctx.arc(x,y,40,0,Math.PI*2);
+    ctx.fill();
+}
+
+update();
+</script>
+
+</body>
+</html>

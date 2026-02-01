@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>version 1.2</title>
+<style>
+  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; color: #fff; font-family: sans-serif; }
+  canvas { background: #333; border: 2px solid #555; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Pfad
+const path = [
+  {x: 0, y: 100},
+  {x: 200, y: 100},
+  {x: 200, y: 300},
+  {x: 400, y: 300},
+  {x: 400, y: 100},
+  {x: 600, y: 100}
+];
+
+// Spieler Stats
+let money = 200;
+let lives = 10;
+let wave = 1;
+
+// Gegnerklassen
+class Enemy {
+  constructor(type="normal") {
+    this.x = path[0].x;
+    this.y = path[0].y;
+    this.pathIndex = 0;
+    if(type==="fast") { this.hp=50 + wave*10; this.speed=2; this.color="orange"; this.reward=15; }
+    else if(type==="tank") { this.hp=200 + wave*50; this.speed=0.5; this.color="purple"; this.reward=30; }
+    else if(type==="boss") { this.hp=500 + wave*100; this.speed=0.7; this.color="black"; this.reward=100; }
+    else { this.hp=100 + wave*20; this.speed=1; this.color="red"; this.reward=10; }
+  }
+
+  move() {
+    let target = path[this.pathIndex+1];
+    if(!target) return;
+    let dx = target.x - this.x;
+    let dy = target.y - this.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < this.speed) this.pathIndex++;
+    else { this.x += (dx/dist)*this.speed; this.y += (dy/dist)*this.speed; }
+  }
+
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x-10, this.y-10, 20, 20);
+    ctx.fillStyle = "green";
+    ctx.fillRect(this.x-10, this.y-15, 20*(this.hp/(this.type==="boss"?1000:500)), 3);
+  }
+}
+
+// Turmklasse
+class Tower {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.range = 100;
+    this.damage = 20;
+    this.cooldown = 0;
+    this.level = 1;
+  }
+
+  shoot(enemies) {
+    if(this.cooldown > 0) { this.cooldown--; return; }
+    for(let enemy of enemies) {
+      let dx = enemy.x - this.x;
+      let dy = enemy.y - this.y;
+      let distance = Math.sqrt(dx*dx + dy*dy);
+      if(distance <= this.range) {
+        enemy.hp -= this.damage;
+        this.cooldown = 30;
+        break;
+      }
+    }
+  }
+
+  draw() {
+    ctx.fillStyle = "blue";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 15, 0, 2*Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,255,0.3)";
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.range, 0, 2*Math.PI);
+    ctx.stroke();
+    ctx.fillStyle = "white";
+    ctx.fillText("L"+this.level, this.x-7, this.y+5);
+  }
+
+  upgrade() {
+    if(money >= 50) {
+      money -= 50;
+      this.damage += 10;
+      this.range += 10;
+      this.level++;
+    }
+  }
+}
+
+// Arrays
+let enemies = [];
+let towers = [];
+
+// Spezialfähigkeit: Bombe
+let bombs = [];
+canvas.addEventListener("contextmenu", (e)=>{
+  e.preventDefault();
+  if(money >= 50) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    bombs.push({x,y,radius:50});
+    money -= 50;
+  }
+});
+
+// Gegner spawnen Wellenweise
+let spawnCounter = 0;
+function spawnWave() {
+  spawnCounter++;
+  if(spawnCounter % 50 === 0) { // Alle 50 Frames
+    if(Math.random() < 0.6) enemies.push(new Enemy("normal"));
+    else if(Math.random() < 0.85) enemies.push(new Enemy("fast"));
+    else if(Math.random() < 0.95) enemies.push(new Enemy("tank"));
+    else enemies.push(new Enemy("boss"));
+  }
+  if(spawnCounter > 300) { spawnCounter = 0; wave++; }
+}
+
+// Klick für Türme setzen oder Upgrades
+canvas.addEventListener("click", (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  for(let tower of towers) {
+    let dx = tower.x - x;
+    let dy = tower.y - y;
+    if(Math.sqrt(dx*dx+dy*dy) < 15) { tower.upgrade(); return; }
+  }
+
+  if(money >= 50) { towers.push(new Tower(x,y)); money -= 50; }
+});
+
+// Game Loop
+function gameLoop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Pfad zeichnen
+  ctx.strokeStyle = "yellow";
+  ctx.lineWidth = 20;
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for(let i=1; i<path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+  ctx.stroke();
+
+  // Gegner spawnen
+  spawnWave();
+
+  // Gegner bewegen & zeichnen
+  for(let i = enemies.length-1; i >= 0; i--) {
+    let enemy = enemies[i];
+    enemy.move();
+    enemy.draw();
+    // Bombe Effekt
+    for(let bomb of bombs) {
+      let dx = enemy.x - bomb.x;
+      let dy = enemy.y - bomb.y;
+      if(Math.sqrt(dx*dx+dy*dy) <= bomb.radius) {
+        enemy.hp -= 50;
+      }
+    }
+    if(enemy.pathIndex >= path.length-1) { lives--; enemies.splice(i,1); }
+    else if(enemy.hp <= 0) { money += enemy.reward; enemies.splice(i,1); }
+  }
+
+  // Türme schießen & zeichnen
+  for(let tower of towers) {
+    tower.shoot(enemies);
+    tower.draw();
+  }
+
+  // Bomben zeichnen
+  for(let bomb of bombs) {
+    ctx.fillStyle = "rgba(255,0,0,0.3)";
+    ctx.beginPath();
+    ctx.arc(bomb.x,bomb.y,bomb.radius,0,2*Math.PI);
+    ctx.fill();
+  }
+
+  // HUD
+  ctx.fillStyle = "white";
+  ctx.fillText("Geld: "+money+"   Leben: "+lives+"   Welle: "+wave+"   Rechtsklick: Bombe (-50 Geld)", 10, 20);
+
+  // Game Over
+  if(lives <= 0) {
+    ctx.fillStyle = "red";
+    ctx.font = "40px sans-serif";
+    ctx.fillText("Game Over", 200, 200);
+  } else requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>

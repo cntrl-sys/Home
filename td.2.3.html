@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tower Defense Pro</title>
+
+<style>
+body{margin:0;display:flex;background:#000;color:white;font-family:Arial}
+#game{cursor:crosshair}
+
+#sidebar{
+width:220px;
+background:#111;
+padding:10px;
+border-left:2px solid #333;
+}
+
+.towerBtn{
+width:120px;
+height:120px;
+margin:8px auto;
+border:2px solid #444;
+border-radius:12px;
+overflow:hidden;
+cursor:pointer;
+}
+
+.towerBtn img{width:100%;height:100%;object-fit:cover}
+.active{border-color:#00ff88}
+
+#upgradeBox{
+margin-top:10px;
+padding:8px;
+background:#222;
+border-radius:10px;
+display:none;
+}
+
+.upBtn{
+background:#333;
+margin:5px 0;
+padding:6px;
+border-radius:6px;
+cursor:pointer;
+text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="900" height="500"></canvas>
+
+<div id="sidebar">
+
+<div class="towerBtn active" data-type="fire"><img src="fire.png"></div>
+<div class="towerBtn" data-type="ice"><img src="ice.png"></div>
+<div class="towerBtn" data-type="sniper"><img src="sniper.png"></div>
+
+<div id="upgradeBox">
+<div class="upBtn" onclick="upgrade('damage')">Upgrade Damage</div>
+<div class="upBtn" onclick="upgrade('range')">Upgrade Range</div>
+<div class="upBtn" onclick="upgrade('speed')">Upgrade Speed</div>
+</div>
+
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+let towers=[];
+let enemies=[];
+let projectiles=[];
+let particles=[];
+let selectedTower="fire";
+let selectedTowerObj=null;
+
+document.querySelectorAll(".towerBtn").forEach(btn=>{
+btn.onclick=()=>{
+document.querySelectorAll(".towerBtn").forEach(b=>b.classList.remove("active"));
+btn.classList.add("active");
+selectedTower=btn.dataset.type;
+};
+});
+
+canvas.onclick=e=>{
+let r=canvas.getBoundingClientRect();
+let x=e.clientX-r.left;
+let y=e.clientY-r.top;
+
+let clicked=towers.find(t=>Math.hypot(t.x-x,t.y-y)<15);
+
+if(clicked){
+selectedTowerObj=clicked;
+document.getElementById("upgradeBox").style.display="block";
+return;
+}
+
+document.getElementById("upgradeBox").style.display="none";
+selectedTowerObj=null;
+
+towers.push(makeTower(x,y,selectedTower));
+};
+
+function makeTower(x,y,type){
+return{
+x,y,type,
+range:type=="sniper"?240:130,
+damage:type=="fire"?6:type=="ice"?3:14,
+rate:type=="sniper"?90:45,
+cd:0,
+level:1
+};
+}
+
+function upgrade(type){
+if(!selectedTowerObj)return;
+
+if(type=="damage")selectedTowerObj.damage+=2;
+if(type=="range")selectedTowerObj.range+=20;
+if(type=="speed")selectedTowerObj.rate=Math.max(15,selectedTowerObj.rate-8);
+
+selectedTowerObj.level++;
+}
+
+function spawnEnemy(type){
+let hp=80;
+let speed=1.2;
+
+if(type=="fast"){hp=60;speed=2.3;}
+if(type=="tank"){hp=260;speed=0.7;}
+if(type=="fly"){hp=100;speed=1.6;}
+
+if(type=="boss"){
+hp=900;
+speed=0.6;
+}
+
+enemies.push({
+x:0,
+y:220+Math.random()*120-60,
+hp,
+maxHp:hp,
+speed,
+type,
+slow:0,
+rage:false,
+laserCooldown:120,
+spawnCooldown:180
+});
+}
+
+setInterval(()=>{
+let r=Math.random();
+if(r<.45)spawnEnemy("fast");
+else if(r<.7)spawnEnemy("tank");
+else if(r<.9)spawnEnemy("fly");
+else spawnEnemy("boss");
+},1600);
+
+function shoot(t,e){
+projectiles.push({
+x:t.x,
+y:t.y,
+tx:e,
+speed:6,
+type:t.type,
+damage:t.damage
+});
+}
+
+function update(){
+
+ctx.fillStyle="#222";
+ctx.fillRect(0,0,900,500);
+
+enemies.forEach(e=>{
+
+if(e.hp<e.maxHp*0.3 && e.type=="boss"){
+e.rage=true;
+e.speed=1.2;
+}
+
+let s=e.speed*(e.slow>0?0.4:1);
+e.x+=s;
+if(e.slow>0)e.slow--;
+
+if(e.type=="boss"){
+bossLogic(e);
+}
+
+ctx.fillStyle=
+e.type=="boss"?"purple":
+e.type=="fly"?"cyan":"red";
+
+ctx.beginPath();
+ctx.arc(e.x,e.y,14,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="lime";
+ctx.fillRect(e.x-20,e.y-22,(e.hp/e.maxHp)*40,5);
+});
+
+enemies=enemies.filter(e=>e.x<900&&e.hp>0);
+
+towers.forEach(t=>{
+
+let target=enemies.find(e=>Math.hypot(e.x-t.x,e.y-t.y)<t.range);
+
+let angle=0;
+if(target) angle=Math.atan2(target.y-t.y,target.x-t.x);
+
+ctx.save();
+ctx.translate(t.x,t.y);
+ctx.rotate(angle);
+ctx.fillStyle=t.type=="fire"?"orange":t.type=="ice"?"lightblue":"yellow";
+ctx.beginPath();
+ctx.arc(0,0,14,0,Math.PI*2);
+ctx.fill();
+ctx.restore();
+
+if(t.cd>0){t.cd--;return;}
+
+if(target){
+t.cd=t.rate;
+shoot(t,target);
+}
+});
+
+projectiles.forEach(p=>{
+let dx=p.tx.x-p.x;
+let dy=p.tx.y-p.y;
+let d=Math.hypot(dx,dy);
+
+p.x+=dx/d*p.speed;
+p.y+=dy/d*p.speed;
+
+ctx.fillStyle="white";
+ctx.beginPath();
+ctx.arc(p.x,p.y,3,0,Math.PI*2);
+ctx.fill();
+
+if(d<8){
+hit(p);
+p.dead=true;
+}
+});
+
+projectiles=projectiles.filter(p=>!p.dead);
+
+particles.forEach(pt=>{
+pt.x+=pt.vx;
+pt.y+=pt.vy;
+pt.life--;
+
+ctx.fillStyle=`rgba(255,150,0,${pt.life/30})`;
+ctx.beginPath();
+ctx.arc(pt.x,pt.y,pt.size,0,Math.PI*2);
+ctx.fill();
+});
+
+particles=particles.filter(p=>p.life>0);
+
+requestAnimationFrame(update);
+}
+
+function hit(p){
+
+if(p.type=="fire"){
+enemies.forEach(e=>{
+if(Math.hypot(e.x-p.x,e.y-p.y)<45){
+e.hp-=p.damage;
+}
+});
+makeExplosion(p.x,p.y);
+}
+
+else if(p.type=="ice"){
+p.tx.hp-=p.damage;
+p.tx.slow=70;
+}
+
+else{
+p.tx.hp-=p.damage;
+}
+}
+
+function makeExplosion(x,y){
+for(let i=0;i<25;i++){
+particles.push({
+x,y,
+vx:(Math.random()-0.5)*4,
+vy:(Math.random()-0.5)*4,
+life:30,
+size:2+Math.random()*3
+});
+}
+}
+
+function bossLogic(b){
+
+b.laserCooldown--;
+b.spawnCooldown--;
+
+if(b.laserCooldown<=0){
+bossLaser(b);
+b.laserCooldown=b.rage?50:100;
+}
+
+if(b.spawnCooldown<=0){
+spawnEnemy("fast");
+spawnEnemy("tank");
+b.spawnCooldown=b.rage?80:160;
+}
+}
+
+function bossLaser(b){
+let target=towers[Math.floor(Math.random()*towers.length)];
+if(!target)return;
+
+ctx.strokeStyle="red";
+ctx.lineWidth=4;
+ctx.beginPath();
+ctx.moveTo(b.x,b.y);
+ctx.lineTo(target.x,target.y);
+ctx.stroke();
+
+target.damage=Math.max(1,target.damage-1);
+}
+
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kontakt & Upload</title>
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(to bottom, #1e1e1e, #2a2a2a);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background-color: #2c2c2c;
+    padding: 30px 40px;
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    max-width: 500px;
+    width: 100%;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #ff9800;
+}
+
+input, textarea, button {
+    width: 100%;
+    margin-bottom: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+}
+
+input, textarea {
+    background-color: #3a3a3a;
+    color: #fff;
+}
+
+input::placeholder, textarea::placeholder {
+    color: #bbb;
+}
+
+button {
+    background-color: #ff9800;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background-color: #e68a00;
+}
+
+#status {
+    text-align: center;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+#drop-area {
+    border: 2px dashed #ff9800;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    color: #fff;
+    margin-bottom: 15px;
+    transition: background 0.3s;
+    cursor: pointer;
+}
+
+#drop-area.hover {
+    background-color: rgba(255, 152, 0, 0.2);
+}
+
+#fileElem {
+    display: none;
+}
+
+#preview {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#preview img, #preview video {
+    max-width: 100px;
+    max-height: 100px;
+    border-radius: 5px;
+}
+
+@media(max-width: 550px) {
+    .container {
+        padding: 20px;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Kontakt & Upload</h2>
+    <form id="contact-form">
+        <input type="text" name="name" placeholder="Dein Name" required>
+        <input type="email" name="email" placeholder="Deine Email" required>
+        <textarea name="message" placeholder="Deine Nachricht" rows="5" required></textarea>
+
+        <div id="drop-area">
+            Ziehe hier Bilder/Videos rein oder klicke zum auswählen
+            <input type="file" id="fileElem" accept="image/*,video/*" multiple>
+        </div>
+
+        <div id="preview"></div>
+
+        <button type="submit">Senden</button>
+    </form>
+    <p id="status"></p>
+</div>
+
+<script>
+(function(){
+    emailjs.init("uQTwAM-QEfXxGf_zc"); // hier deinen Public Key einsetzen
+})();
+
+const dropArea = document.getElementById('drop-area');
+const fileInput = document.getElementById('fileElem');
+const preview = document.getElementById('preview');
+let filesToSend = [];
+
+// Drag & Drop Events
+['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropArea.classList.add('hover');
+    }, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropArea.classList.remove('hover');
+    }, false);
+});
+
+dropArea.addEventListener('drop', handleDrop, false);
+dropArea.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', handleFiles);
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles({ target: { files } });
+}
+
+function handleFiles(e) {
+    const files = e.target.files;
+    for (let file of files) {
+        filesToSend.push(file);
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const src = event.target.result;
+            let element;
+            if(file.type.startsWith('image/')) {
+                element = document.createElement('img');
+                element.src = src;
+            } else if(file.type.startsWith('video/')) {
+                element = document.createElement('video');
+                element.src = src;
+                element.controls = true;
+            }
+            preview.appendChild(element);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Form Submission
+document.getElementById("contact-form").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const form = this;
+    const status = document.getElementById("status");
+
+    if(filesToSend.length > 0) {
+        // Für jede Datei Base64 erstellen und als Array senden
+        const promises = filesToSend.map(file => {
+            return new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    resolve(reader.result);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+
+        Promise.all(promises).then(base64files => {
+            emailjs.send("service_9lozhsc", "template_m4bfrmy", {
+                name: form.name.value,
+                email: form.email.value,
+                message: form.message.value,
+                files: base64files.join(',') // als String an EmailJS senden
+            }).then(() => {
+                status.innerText = "Email wurde gesendet ✅";
+                form.reset();
+                preview.innerHTML = '';
+                filesToSend = [];
+            }, error => {
+                status.innerText = "Fehler: " + error.text;
+            });
+        });
+    } else {
+        // Keine Dateien, nur Text
+        emailjs.sendForm("service_9lozhsc", "template_m4bfrmy", form)
+        .then(() => {
+            status.innerText = "Email wurde gesendet ✅";
+            form.reset();
+        }, error => {
+            status.innerText = "Fehler: " + error.text;
+        });
+    }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Kontakt</title>
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+</head>
+<body>
+
+<h2>Kontaktformular</h2>
+
+<form id="contact-form">
+    <input type="text" name="name" placeholder="Dein Name" required><br><br>
+    <input type="email" name="email" placeholder="Deine Email" required><br><br>
+    <textarea name="message" placeholder="Deine Nachricht" required></textarea><br><br>
+    <button type="submit">Senden</button>
+</form>
+
+<p id="status"></p>
+
+<script>
+(function(){
+    emailjs.init("uQTwAM-QEfXxGf_zc");
+})();
+
+document.getElementById("contact-form").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    emailjs.sendForm(
+        "service_9lozhsc",
+        "template_m4bfrmy",
+        this
+    ).then(function() {
+        document.getElementById("status").innerText = "Email wurde gesendet ✅";
+    }, function(error) {
+        document.getElementById("status").innerText = "Fehler: " + error.text;
+    });
+});
+</script>
+
+</body>
+</html>

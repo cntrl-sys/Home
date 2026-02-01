@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tower Defense World</title>
+
+<style>
+body{
+margin:0;
+background:#000;
+font-family:Arial;
+color:white;
+overflow:hidden;
+}
+
+#menu,#gameUI{
+position:absolute;
+top:0;left:0;
+width:100%;height:100%;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+#menu{
+flex-direction:column;
+background:#000;
+}
+
+.levelBtn{
+padding:15px 40px;
+margin:12px;
+font-size:22px;
+border-radius:12px;
+border:2px solid #555;
+cursor:pointer;
+background:#111;
+}
+
+.locked{opacity:.3;pointer-events:none}
+
+#gameUI{display:none}
+
+#sidebar{
+width:200px;
+background:rgba(0,0,0,.75);
+padding:10px;
+}
+
+.towerBtn{
+width:120px;height:120px;
+margin:10px auto;
+border-radius:14px;
+overflow:hidden;
+border:2px solid #555;
+cursor:pointer;
+}
+
+.towerBtn img{width:100%;height:100%}
+
+.active{border-color:#00ff99}
+
+#hud{
+padding:10px;
+text-align:center;
+font-size:18px;
+}
+
+canvas{flex:1}
+</style>
+</head>
+
+<body>
+
+<div id="menu">
+<h1>🌍 Tower Defense World</h1>
+<div class="levelBtn" onclick="startLevel(0)">🏜 Desert</div>
+<div class="levelBtn locked" id="lvl1" onclick="startLevel(1)">❄ Ice</div>
+<div class="levelBtn locked" id="lvl2" onclick="startLevel(2)">🌋 Lava</div>
+</div>
+
+<div id="gameUI">
+<canvas id="game" width="900" height="500"></canvas>
+
+<div id="sidebar">
+
+<div id="hud">Gold: <span id="gold">200</span></div>
+
+<div class="towerBtn active" data-type="fire"><img src="fire.png"></div>
+<div class="towerBtn" data-type="ice"><img src="ice.png"></div>
+<div class="towerBtn" data-type="sniper"><img src="sniper.png"></div>
+
+</div>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+let bg=new Image();
+
+const themes=["desert.jpg","ice.jpg","lava.jpg"];
+
+let level=0;
+let unlocked=[true,false,false];
+
+let towers=[],enemies=[],projectiles=[],particles=[];
+let selected="fire";
+let gold=200;
+let wave=1;
+
+const costs={fire:50,ice:60,sniper:90};
+
+document.querySelectorAll(".towerBtn").forEach(b=>{
+b.onclick=()=>{
+document.querySelectorAll(".towerBtn").forEach(x=>x.classList.remove("active"));
+b.classList.add("active");
+selected=b.dataset.type;
+};
+});
+
+function startLevel(lvl){
+level=lvl;
+bg.src=themes[lvl];
+document.getElementById("menu").style.display="none";
+document.getElementById("gameUI").style.display="flex";
+resetGame();
+}
+
+function resetGame(){
+towers=[]; enemies=[]; projectiles=[]; particles=[];
+gold=200; wave=1;
+updateGold();
+spawnWave();
+}
+
+canvas.onclick=e=>{
+let r=canvas.getBoundingClientRect();
+let x=e.clientX-r.left;
+let y=e.clientY-r.top;
+
+if(gold<costs[selected]) return;
+
+gold-=costs[selected];
+updateGold();
+
+towers.push(makeTower(x,y,selected));
+};
+
+function updateGold(){
+document.getElementById("gold").innerText=gold;
+}
+
+function makeTower(x,y,t){
+return{
+x,y,type:t,
+range:t=="sniper"?260:140,
+damage:t=="fire"?8:t=="ice"?4:18,
+rate:t=="sniper"?100:45,
+cd:0
+};
+}
+
+function spawnWave(){
+for(let i=0;i<wave*4;i++){
+setTimeout(()=>spawnEnemy(),i*600);
+}
+wave++;
+}
+
+function spawnEnemy(){
+let r=Math.random();
+let type=r<.5?"fast":r<.75?"tank":"fly";
+
+let hp=type=="tank"?260:type=="fly"?120:80;
+let speed=type=="fast"?2.2:type=="tank"?0.7:1.3;
+
+if(wave%5==0){
+type="boss";
+hp=1200;
+speed=.6;
+}
+
+enemies.push({
+x:0,y:200+Math.random()*100,
+hp,maxHp:hp,
+speed,type,slow:0,
+rage:false
+});
+}
+
+function shoot(t,e){
+projectiles.push({
+x:t.x,y:t.y,target:e,
+type:t.type,
+damage:t.damage,
+speed:7
+});
+}
+
+function update(){
+
+ctx.drawImage(bg,0,0,900,500);
+
+enemies.forEach(e=>{
+if(e.type=="boss"&&e.hp<e.maxHp*.3){
+e.rage=true;
+e.speed=1.4;
+}
+
+let s=e.speed*(e.slow>0?0.4:1);
+e.x+=s;
+if(e.slow>0)e.slow--;
+
+ctx.fillStyle=
+e.type=="boss"?"purple":
+e.type=="fly"?"cyan":"red";
+
+ctx.beginPath();
+ctx.arc(e.x,e.y,14,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="lime";
+ctx.fillRect(e.x-18,e.y-22,(e.hp/e.maxHp)*36,5);
+});
+
+enemies=enemies.filter(e=>{
+if(e.hp<=0){
+gold+=20;
+updateGold();
+return false;
+}
+return e.x<900;
+});
+
+towers.forEach(t=>{
+let target=enemies.find(e=>Math.hypot(e.x-t.x,e.y-t.y)<t.range);
+
+let a=target?Math.atan2(target.y-t.y,target.x-t.x):0;
+
+ctx.save();
+ctx.translate(t.x,t.y);
+ctx.rotate(a);
+ctx.fillStyle=t.type=="fire"?"orange":t.type=="ice"?"lightblue":"yellow";
+ctx.beginPath();
+ctx.arc(0,0,14,0,Math.PI*2);
+ctx.fill();
+ctx.restore();
+
+if(t.cd>0){t.cd--;return;}
+
+if(target){
+t.cd=t.rate;
+shoot(t,target);
+}
+});
+
+projectiles.forEach(p=>{
+let dx=p.target.x-p.x;
+let dy=p.target.y-p.y;
+let d=Math.hypot(dx,dy);
+
+p.x+=dx/d*p.speed;
+p.y+=dy/d*p.speed;
+
+ctx.fillStyle="white";
+ctx.beginPath();
+ctx.arc(p.x,p.y,3,0,Math.PI*2);
+ctx.fill();
+
+if(d<8){
+impact(p);
+p.dead=true;
+}
+});
+
+projectiles=projectiles.filter(p=>!p.dead);
+
+particles.forEach(pt=>{
+pt.x+=pt.vx;
+pt.y+=pt.vy;
+pt.life--;
+
+ctx.fillStyle=pt.color.replace("ALPHA",pt.life/40);
+ctx.beginPath();
+ctx.arc(pt.x,pt.y,pt.size,0,Math.PI*2);
+ctx.fill();
+});
+
+particles=particles.filter(p=>p.life>0);
+
+if(enemies.length==0) spawnWave();
+
+requestAnimationFrame(update);
+}
+
+function impact(p){
+
+if(p.type=="fire"){
+aoe(p.x,p.y,50,p.damage);
+fireEffect(p.x,p.y);
+}
+
+else if(p.type=="ice"){
+p.target.hp-=p.damage;
+p.target.slow=80;
+frostEffect(p.target.x,p.target.y);
+}
+
+else{
+p.target.hp-=p.damage;
+}
+}
+
+function aoe(x,y,r,dmg){
+enemies.forEach(e=>{
+if(Math.hypot(e.x-x,e.y-y)<r) e.hp-=dmg;
+});
+}
+
+function fireEffect(x,y){
+for(let i=0;i<35;i++){
+particles.push({
+x,y,
+vx:(Math.random()-0.5)*5,
+vy:(Math.random()-0.5)*5,
+life:40,
+size:3,
+color:"rgba(255,120,0,ALPHA)"
+});
+}
+}
+
+function frostEffect(x,y){
+for(let i=0;i<20;i++){
+particles.push({
+x,y,
+vx:(Math.random()-0.5)*3,
+vy:(Math.random()-0.5)*3,
+life:35,
+size:2,
+color:"rgba(150,220,255,ALPHA)"
+});
+}
+}
+
+update();
+</script>
+
+</body>
+</html>
